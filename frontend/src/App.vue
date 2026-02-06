@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useGameStore } from "./stores/game";
 import PetScene from "./components/PetScene.vue";
 import HudBar from "./components/HudBar.vue";
@@ -7,10 +7,13 @@ import ActionPanel from "./components/ActionPanel.vue";
 import ShopPanel from "./components/ShopPanel.vue";
 import MiniGameCatch from "./components/MiniGameCatch.vue";
 import StatsPanel from "./components/StatsPanel.vue";
+import ChatFab from "./components/ChatFab.vue";
+import ChatPanel from "./components/ChatPanel.vue";
 
 const store = useGameStore();
 const view = ref<"care" | "shop" | "play">("care");
 const lastAction = ref<{ type: string; at: number } | null>(null);
+const chatOpen = ref(false);
 let refreshTimer: number | undefined;
 
 onMounted(async () => {
@@ -31,6 +34,15 @@ async function handleAction(action: string) {
   lastAction.value = { type: action, at: Date.now() };
   await store.action(action);
 }
+
+watch(
+  () => store.chatResult,
+  (result) => {
+    if (result && result.action !== "none") {
+      lastAction.value = { type: result.action, at: Date.now() };
+    }
+  }
+);
 </script>
 
 <template>
@@ -67,6 +79,7 @@ async function handleAction(action: string) {
           :profile="store.profile"
           :shop-items="store.shopItems"
           :last-action="lastAction"
+          :mood-override="store.moodOverride?.mood ?? null"
         />
         <HudBar :profile="store.profile" />
       </section>
@@ -88,5 +101,15 @@ async function handleAction(action: string) {
         </div>
       </section>
     </main>
+    <ChatPanel
+      v-if="chatOpen"
+      :messages="store.chatMessages"
+      :pending="store.chatPending"
+      :error="store.chatError"
+      :last-result="store.chatResult"
+      @send="store.sendChatMessage"
+      @close="chatOpen = false"
+    />
+    <ChatFab @toggle="chatOpen = !chatOpen" />
   </div>
 </template>

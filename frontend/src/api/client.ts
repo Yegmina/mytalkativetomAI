@@ -39,6 +39,30 @@ export interface ShopItem {
   description: string;
 }
 
+export type ChatRole = "system" | "user" | "assistant";
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+}
+
+export interface ChatEquip {
+  hat_id?: string | null;
+  background_id?: string | null;
+}
+
+export interface ChatResult {
+  reply: string;
+  mood: "happy" | "neutral" | "sad" | "angry" | "tired";
+  action: "feed" | "sleep" | "clean" | "play" | "none";
+  equip?: ChatEquip | null;
+}
+
+export interface ChatResponse {
+  response: ChatResult;
+  profile: Profile;
+}
+
 export async function getProfile(): Promise<Profile> {
   return request<Profile>("/api/profile");
 }
@@ -72,5 +96,12 @@ export async function submitMinigame(
   return request("/api/minigame/result", {
     method: "POST",
     body: JSON.stringify({ score, duration_ms }),
+  });
+}
+
+export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
+  return request("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({ messages }),
   });
 }

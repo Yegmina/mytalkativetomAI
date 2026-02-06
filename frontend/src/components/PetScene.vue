@@ -6,6 +6,7 @@ const props = defineProps<{
   profile: Profile | null;
   shopItems: ShopItem[];
   lastAction?: { type: string; at: number } | null;
+  moodOverride?: "happy" | "neutral" | "sad" | "angry" | "tired" | null;
 }>();
 
 const itemMap = computed(() => {
@@ -26,7 +27,24 @@ const equippedHat = computed(() => {
   return id ? itemMap.value[id]?.asset_url : null;
 });
 
-const moodLevel = computed(() => props.profile?.mood ?? 0);
+const moodOverrideValue = computed(() => {
+  switch (props.moodOverride) {
+    case "happy":
+      return 90;
+    case "neutral":
+      return 60;
+    case "sad":
+      return 35;
+    case "angry":
+      return 15;
+    case "tired":
+      return 25;
+    default:
+      return null;
+  }
+});
+
+const moodLevel = computed(() => moodOverrideValue.value ?? props.profile?.mood ?? 0);
 const energyLevel = computed(() => props.profile?.energy ?? 0);
 
 const asset = (file: string) => `/assets/kit/${file}`;
