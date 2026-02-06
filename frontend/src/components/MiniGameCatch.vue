@@ -8,6 +8,8 @@ const running = ref(false);
 const score = ref(0);
 const timeLeft = ref(30);
 const status = ref("Catch as many coins as you can!");
+const result = ref<"win" | "lose" | null>(null);
+const showResult = ref(false);
 
 const width = 520;
 const height = 300;
@@ -16,6 +18,9 @@ const basketHeight = 18;
 const coinRadius = 10;
 const spawnInterval = 0.7;
 const gameDuration = 30;
+const winThreshold = 10;
+const winSrc = "/assets/kit/kit_win.gif";
+const loseSrc = "/assets/kit/kit_lose.mp4";
 
 let basketX = width / 2 - basketWidth / 2;
 let coins: { x: number; y: number; speed: number }[] = [];
@@ -23,6 +28,7 @@ let lastTime = 0;
 let spawnTimer = 0;
 let animationId = 0;
 let startTime = 0;
+let resultTimer: number | undefined;
 
 function resetGame() {
   basketX = width / 2 - basketWidth / 2;
@@ -30,6 +36,8 @@ function resetGame() {
   score.value = 0;
   timeLeft.value = gameDuration;
   status.value = "Catch as many coins as you can!";
+  result.value = null;
+  showResult.value = false;
 }
 
 function startGame() {
@@ -47,6 +55,14 @@ function endGame() {
   cancelAnimationFrame(animationId);
   const durationMs = Math.round(performance.now() - startTime);
   status.value = `Nice! You caught ${score.value} coins.`;
+  result.value = score.value >= winThreshold ? "win" : "lose";
+  showResult.value = true;
+  if (resultTimer) {
+    window.clearTimeout(resultTimer);
+  }
+  resultTimer = window.setTimeout(() => {
+    showResult.value = false;
+  }, 4000);
   store.submitMinigame(score.value, durationMs);
 }
 
@@ -160,18 +176,87 @@ onUnmounted(() => {
   window.removeEventListener("mousemove", onMouseMove);
   window.removeEventListener("keydown", onKeyDown);
   cancelAnimationFrame(animationId);
+  if (resultTimer) {
+    window.clearTimeout(resultTimer);
+  }
 });
 </script>
 
 <template>
   <div class="panel mini-game">
     <div class="panel-title">Mini-Game: Coin Catch</div>
-    <canvas ref="canvasRef"></canvas>
+    <div class="mini-game-stage">
+      <canvas ref="canvasRef"></canvas>
+      <transition name="result-fade">
+        <div v-if="showResult && result" class="result-overlay">
+          <img v-if="result === 'win'" :src="winSrc" alt="Kit wins" />
+          <video
+            v-else
+            :src="loseSrc"
+            autoplay
+            loop
+            muted
+            playsinline
+          ></video>
+          <div class="result-label">
+            {{ result === "win" ? "Kit wins!" : "Try again!" }}
+          </div>
+        </div>
+      </transition>
+    </div>
     <div class="row" style="justify-content: space-between">
       <span class="badge">Score {{ score }}</span>
       <span class="badge">Time {{ timeLeft }}s</span>
     </div>
     <p class="muted">{{ status }}</p>
-    <button class="cta" @click="startGame">Start</button>
+    <button class="cta" @click="startGame" :disabled="running">
+      {{ running ? "Running..." : "Start" }}
+    </button>
   </div>
 </template>
+
+<style scoped>
+.mini-game-stage {
+  position: relative;
+}
+
+.result-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  background: rgba(8, 12, 28, 0.65);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.result-overlay img,
+.result-overlay video {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.35));
+}
+
+.result-label {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.result-fade-enter-active,
+.result-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.result-fade-enter-from,
+.result-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+</style>
