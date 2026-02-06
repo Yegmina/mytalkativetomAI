@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Iterable, Literal
 
 from google import genai
@@ -25,6 +26,21 @@ class ChatServiceError(RuntimeError):
 
 
 logger = logging.getLogger(__name__)
+
+
+def _animation_options() -> list[dict[str, str]]:
+    root = Path(__file__).resolve().parents[3]
+    path = root / "external_assets" / "animations_cat" / "cat_videos.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    cats = data.get("cats", [])
+    return [
+        {"video": item.get("video", ""), "description": item.get("description", "")}
+        for item in cats
+        if item.get("video")
+    ]
 
 
 def _client() -> OpenAI:
@@ -50,17 +66,26 @@ def _system_prompt(
 ) -> str:
     hats = ", ".join(hat_ids) if hat_ids else "none"
     backgrounds = ", ".join(background_ids) if background_ids else "none"
+    animations = _animation_options()
+    if animations:
+        animation_list = "; ".join(
+            f"{item['video']} ({item['description']})" for item in animations
+        )
+    else:
+        animation_list = "none"
     return (
         "You are Kit the cat in a virtual pet game. Keep replies short, playful, and kind. "
         "You MUST respond in JSON that matches the provided schema. "
         "Pick a mood, an action, and optional equip item based on the user's message. "
+        "Choose an animation video that fits the mood/action; if unsure use chilling_cat.mp4. "
         "If the user asks to change a hat/background, select from the allowed ids. "
         "If unsure, use action 'none' and mood 'neutral'. "
         "All stats are on a 0-100 scale. Lower hunger means more full; higher hunger means more hungry. "
         "Higher energy, hygiene, and fun are better. Mood is 0-100 where higher is happier. "
         f"Current stats: hunger={profile['hunger']:.0f}, energy={profile['energy']:.0f}, "
         f"hygiene={profile['hygiene']:.0f}, fun={profile['fun']:.0f}, mood={profile['mood']:.0f}. "
-        f"Allowed hat_ids: {hats}. Allowed background_ids: {backgrounds}."
+        f"Allowed hat_ids: {hats}. Allowed background_ids: {backgrounds}. "
+        f"Allowed animation videos: {animation_list}."
     )
 
 
@@ -72,6 +97,8 @@ def _chat_openai(
 ) -> ChatResult:
     model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
     reasoning_effort = os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
+    allowed_animations = [item["video"] for item in _animation_options()]
+    animation_enum = allowed_animations + [None]
     system_message = {
         "role": "system",
         "content": _system_prompt(profile, hat_ids, background_ids),
@@ -107,6 +134,10 @@ def _chat_openai(
                             },
                             "required": [],
                             "additionalProperties": False,
+                        },
+                        "animation": {
+                            "type": ["string", "null"],
+                            "enum": animation_enum,
                         },
                     },
                     "required": ["reply", "mood", "action"],
@@ -239,6 +270,23 @@ def _chat_gemini(
         ) from exc
 
 
+def _normalize_animation(selection: str | None) -> str | None:
+    if not selection:
+        return None
+    allowed = {item["video"] for item in _animation_options()}
+    if selection in allowed:
+        return selection
+    if selection.endswith(".mp4"):
+        candidate = f"{selection[:-4]}.webm"
+        if candidate in allowed:
+            return candidate
+    if "." not in selection:
+        candidate = f"{selection}.webm"
+        if candidate in allowed:
+            return candidate
+    return None
+
+
 def chat_with_cat(
     messages: list[ChatMessage],
     profile: dict,
@@ -247,5 +295,9 @@ def chat_with_cat(
 ) -> ChatResult:
     provider = _provider()
     if provider == "gemini":
-        return _chat_gemini(messages, profile, hat_ids, background_ids)
-    return _chat_openai(messages, profile, hat_ids, background_ids)
+        result = _chat_gemini(messages, profile, hat_ids, background_ids)
+    else:
+        result = _chat_openai(messages, profile, hat_ids, background_ids)
+
+    result.animation = _normalize_animation(result.animation)
+    return result

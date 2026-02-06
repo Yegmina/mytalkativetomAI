@@ -80,6 +80,7 @@ watch(
           :shop-items="store.shopItems"
           :last-action="lastAction"
           :mood-override="store.moodOverride?.mood ?? null"
+          :animation-override="store.animationOverride?.animation ?? null"
         />
         <HudBar :profile="store.profile" />
       </section>
