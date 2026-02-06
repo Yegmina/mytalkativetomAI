@@ -10,6 +10,7 @@ import StatsPanel from "./components/StatsPanel.vue";
 
 const store = useGameStore();
 const view = ref<"care" | "shop" | "play">("care");
+const lastAction = ref<{ type: string; at: number } | null>(null);
 let refreshTimer: number | undefined;
 
 onMounted(async () => {
@@ -25,6 +26,11 @@ onUnmounted(() => {
     window.clearInterval(refreshTimer);
   }
 });
+
+async function handleAction(action: string) {
+  lastAction.value = { type: action, at: Date.now() };
+  await store.action(action);
+}
 </script>
 
 <template>
@@ -57,13 +63,17 @@ onUnmounted(() => {
 
     <main class="main">
       <section class="stack">
-        <PetScene :profile="store.profile" :shop-items="store.shopItems" />
+        <PetScene
+          :profile="store.profile"
+          :shop-items="store.shopItems"
+          :last-action="lastAction"
+        />
         <HudBar :profile="store.profile" />
       </section>
 
       <section class="stack">
         <StatsPanel :profile="store.profile" />
-        <ActionPanel @action="store.action" />
+        <ActionPanel @action="handleAction" />
         <ShopPanel
           v-if="view === 'shop'"
           :items="store.shopItems"

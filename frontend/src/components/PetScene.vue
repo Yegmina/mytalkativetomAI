@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import type { Profile, ShopItem } from "../api/client";
 
 const props = defineProps<{
   profile: Profile | null;
   shopItems: ShopItem[];
+  lastAction?: { type: string; at: number } | null;
 }>();
 
 const itemMap = computed(() => {
@@ -28,17 +29,73 @@ const equippedHat = computed(() => {
 const moodLevel = computed(() => props.profile?.mood ?? 0);
 const energyLevel = computed(() => props.profile?.energy ?? 0);
 
-const petImage = computed(() => {
+const asset = (file: string) => `/assets/kit/${file}`;
+
+const bodyImage = computed(() => {
   if (energyLevel.value < 25) {
-    return "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f634.png";
+    return asset("kit_body_tired.png");
   }
-  if (moodLevel.value < 35) {
-    return "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f63f.png";
+  if (moodLevel.value < 20) {
+    return asset("kit_body_angry.png");
+  }
+  if (moodLevel.value < 40) {
+    return asset("kit_body_sad.png");
   }
   if (moodLevel.value > 80) {
-    return "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f63a.png";
+    return asset("kit_body_happy.png");
   }
-  return "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f431.png";
+  return asset("kit_body_neutral.png");
+});
+
+const petImage = computed(() => {
+  if (energyLevel.value < 25) {
+    return asset("kit_face_phew.png");
+  }
+  if (moodLevel.value < 20) {
+    return asset("kit_face_angry.png");
+  }
+  if (moodLevel.value < 40) {
+    return asset("kit_face_sad.png");
+  }
+  if (moodLevel.value > 80) {
+    return asset("kit_face_happy.png");
+  }
+  return asset("kit_face_neutral.png");
+});
+
+const actionOverlay = ref<{ type: string; src?: string; kind: "image" | "video" | "text" } | null>(null);
+let actionTimer: number | undefined;
+
+const actionSources: Record<
+  string,
+  { src?: string; kind: "image" | "video" | "text" }
+> = {
+  feed: { src: asset("actions/feed_hearts.gif"), kind: "image" },
+  clean: { src: asset("actions/clean_bubble.png"), kind: "image" },
+  play: { src: asset("kit_win.gif"), kind: "image" },
+  sleep: { kind: "text" },
+};
+
+watch(
+  () => props.lastAction?.at,
+  () => {
+    if (!props.lastAction) return;
+    const type = props.lastAction.type;
+    const config = actionSources[type] ?? { kind: "text" as const };
+    actionOverlay.value = { type, ...config };
+    if (actionTimer) {
+      window.clearTimeout(actionTimer);
+    }
+    actionTimer = window.setTimeout(() => {
+      actionOverlay.value = null;
+    }, 2600);
+  }
+);
+
+onUnmounted(() => {
+  if (actionTimer) {
+    window.clearTimeout(actionTimer);
+  }
 });
 
 const alerts = computed(() => {
@@ -47,25 +104,25 @@ const alerts = computed(() => {
   if (props.profile.hunger < 30) {
     alertsList.push({
       id: "hunger",
-      icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f41f.png",
+      icon: asset("kit_face_sad.png"),
     });
   }
   if (props.profile.energy < 30) {
     alertsList.push({
       id: "energy",
-      icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4a4.png",
+      icon: asset("kit_face_phew.png"),
     });
   }
   if (props.profile.hygiene < 30) {
     alertsList.push({
       id: "hygiene",
-      icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9fc.png",
+      icon: asset("kit_face_facepalm.png"),
     });
   }
   if (props.profile.fun < 30) {
     alertsList.push({
       id: "fun",
-      icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26bd.png",
+      icon: asset("kit_face_clap.png"),
     });
   }
   return alertsList;
@@ -82,11 +139,38 @@ const alerts = computed(() => {
       }"
     >
       <div class="pet-wrap">
-        <img :src="petImage" alt="Pet" class="pet" />
+        <transition name="pet-body-fade" mode="out-in">
+          <img :src="bodyImage" :key="bodyImage" alt="Kit body" class="pet-body" />
+        </transition>
+        <transition name="pet-face-pop" mode="out-in">
+          <img :src="petImage" :key="petImage" alt="Kit face" class="pet-face" />
+        </transition>
         <img v-if="equippedHat" :src="equippedHat" alt="Hat" class="hat" />
         <div class="alerts">
           <img v-for="alert in alerts" :key="alert.id" :src="alert.icon" />
         </div>
+        <transition name="action-fade">
+          <div
+            v-if="actionOverlay"
+            class="action-overlay"
+            :class="`action-${actionOverlay.type}`"
+          >
+            <img
+              v-if="actionOverlay.kind === 'image'"
+              :src="actionOverlay.src"
+              alt="Action"
+            />
+            <video
+              v-else-if="actionOverlay.kind === 'video'"
+              :src="actionOverlay.src"
+              autoplay
+              loop
+              muted
+              playsinline
+            ></video>
+            <div v-else class="action-zzz">Zzz</div>
+          </div>
+        </transition>
       </div>
       <div class="speech">
         <span>{{ profile?.name ?? "Tom" }}</span>
@@ -117,22 +201,33 @@ const alerts = computed(() => {
   position: relative;
   display: grid;
   place-items: center;
-  width: 180px;
-  height: 180px;
+  width: 240px;
+  height: 240px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0));
   animation: float 3s ease-in-out infinite;
 }
 
-.pet {
+.pet-body {
+  width: 210px;
+  height: 210px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.25));
+}
+
+.pet-face {
+  position: absolute;
+  top: 18px;
   width: 120px;
   height: 120px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
 }
 
 .hat {
   position: absolute;
-  top: 10px;
-  width: 70px;
+  top: 0px;
+  width: 78px;
   transform: rotate(-6deg);
 }
 
@@ -169,6 +264,87 @@ const alerts = computed(() => {
   color: rgba(255, 255, 255, 0.7);
 }
 
+.pet-body-fade-enter-active,
+.pet-body-fade-leave-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.pet-body-fade-enter-from,
+.pet-body-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.92) rotate(-2deg);
+}
+
+.pet-face-pop-enter-active,
+.pet-face-pop-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.pet-face-pop-enter-from,
+.pet-face-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.action-overlay {
+  position: absolute;
+  right: -6px;
+  bottom: -8px;
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  pointer-events: none;
+  animation: action-pop 0.3s ease;
+}
+
+.action-overlay img,
+.action-overlay video {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.action-feed img {
+  animation: float-up 2.6s ease;
+}
+
+.action-clean img {
+  animation: bubble-pop 2.6s ease;
+  opacity: 0.9;
+}
+
+.action-play img {
+  width: 140px;
+  height: 140px;
+  animation: sparkle-spin 2.6s ease;
+}
+
+.action-sleep video {
+  width: 150px;
+  height: 150px;
+  opacity: 0.9;
+}
+
+.action-zzz {
+  font-size: 28px;
+  font-weight: 700;
+  color: #b8d8ff;
+  text-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  animation: zzz 1.8s ease-in-out infinite;
+}
+
+.action-fade-enter-active,
+.action-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.action-fade-enter-from,
+.action-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
 @keyframes float {
   0% {
     transform: translateY(0px);
@@ -178,6 +354,73 @@ const alerts = computed(() => {
   }
   100% {
     transform: translateY(0px);
+  }
+}
+
+@keyframes action-pop {
+  0% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(6px) scale(0.9);
+    opacity: 0.7;
+  }
+  60% {
+    transform: translateY(-16px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-28px) scale(1.05);
+    opacity: 0;
+  }
+}
+
+@keyframes bubble-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  60% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkle-spin {
+  0% {
+    transform: scale(0.9) rotate(-6deg);
+  }
+  60% {
+    transform: scale(1.05) rotate(4deg);
+  }
+  100% {
+    transform: scale(1.1) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+@keyframes zzz {
+  0% {
+    transform: translateY(0px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0px);
+    opacity: 0.6;
   }
 }
 </style>

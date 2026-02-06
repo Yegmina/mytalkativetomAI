@@ -7,22 +7,22 @@ const actions = [
   {
     id: "feed",
     label: "Feed",
-    icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f372.png",
+    icon: "/assets/kit/kit_face_thanks.png",
   },
   {
     id: "sleep",
     label: "Sleep",
-    icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f634.png",
+    icon: "/assets/kit/kit_face_phew.png",
   },
   {
     id: "clean",
     label: "Clean",
-    icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9fc.png",
+    icon: "/assets/kit/kit_face_facepalm.png",
   },
   {
     id: "play",
     label: "Play",
-    icon: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26bd.png",
+    icon: "/assets/kit/kit_face_gg.png",
   },
 ];
 </script>
