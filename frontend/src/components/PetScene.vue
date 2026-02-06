@@ -7,6 +7,7 @@ const props = defineProps<{
   shopItems: ShopItem[];
   lastAction?: { type: string; at: number } | null;
   moodOverride?: "happy" | "neutral" | "sad" | "angry" | "tired" | null;
+  animationOverride?: string | null;
 }>();
 
 const itemMap = computed(() => {
@@ -48,6 +49,8 @@ const moodLevel = computed(() => moodOverrideValue.value ?? props.profile?.mood 
 const energyLevel = computed(() => props.profile?.energy ?? 0);
 
 const asset = (file: string) => `/assets/kit/${file}`;
+const apiBase =
+  import.meta.env.VITE_API_BASE?.toString() || "http://localhost:8000";
 
 const bodyImage = computed(() => {
   if (energyLevel.value < 25) {
@@ -80,6 +83,12 @@ const petImage = computed(() => {
   }
   return asset("kit_face_neutral.png");
 });
+
+const animationSrc = computed(() =>
+  props.animationOverride
+    ? `${apiBase}/assets/animations_cat/${props.animationOverride}`
+    : null
+);
 
 const actionOverlay = ref<{ type: string; src?: string; kind: "image" | "video" | "text" } | null>(null);
 let actionTimer: number | undefined;
@@ -156,7 +165,18 @@ const alerts = computed(() => {
         backgroundImage: equippedBackground ? `url(${equippedBackground})` : undefined,
       }"
     >
-      <div class="pet-wrap">
+      <div class="pet-wrap" :class="{ 'is-animating': !!animationSrc }">
+        <transition name="pet-animation-fade" mode="out-in">
+          <video
+            v-if="animationSrc"
+            :src="animationSrc"
+            class="pet-animation"
+            autoplay
+            loop
+            muted
+            playsinline
+          ></video>
+        </transition>
         <transition name="pet-body-fade" mode="out-in">
           <img :src="bodyImage" :key="bodyImage" alt="Kit body" class="pet-body" />
         </transition>
@@ -233,9 +253,27 @@ const alerts = computed(() => {
   filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.25));
 }
 
+.pet-animation {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 252px;
+  height: 252px;
+  object-fit: contain;
+  z-index: 3;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.35));
+}
+
+.pet-wrap.is-animating .pet-body,
+.pet-wrap.is-animating .pet-face,
+.pet-wrap.is-animating .hat {
+  opacity: 0;
+}
+
 .pet-face {
   position: absolute;
-  top: 18px;
+  top: 8px;
+  left: -105px;
   width: 120px;
   height: 120px;
   object-fit: contain;
@@ -244,7 +282,8 @@ const alerts = computed(() => {
 
 .hat {
   position: absolute;
-  top: 0px;
+  top: -6px;
+  left: -88px;
   width: 78px;
   transform: rotate(-6deg);
 }
@@ -302,6 +341,16 @@ const alerts = computed(() => {
 .pet-face-pop-leave-to {
   opacity: 0;
   transform: scale(0.9);
+}
+
+.pet-animation-fade-enter-active,
+.pet-animation-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.pet-animation-fade-enter-from,
+.pet-animation-fade-leave-to {
+  opacity: 0;
 }
 
 .action-overlay {

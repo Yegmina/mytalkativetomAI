@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -28,6 +29,14 @@ app = FastAPI(title="Talking Tom Hackathon API")
 _ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(_ROOT / ".env", override=False)
 load_dotenv(_ROOT / "backend" / ".env", override=False)
+
+_ANIMATIONS_DIR = _ROOT / "external_assets" / "animations_cat"
+if _ANIMATIONS_DIR.exists():
+    app.mount(
+        "/assets/animations_cat",
+        StaticFiles(directory=str(_ANIMATIONS_DIR)),
+        name="animations-cat",
+    )
 
 app.add_middleware(
     CORSMiddleware,

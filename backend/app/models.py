@@ -77,6 +77,7 @@ class ChatResult(BaseModel):
     mood: Literal["happy", "neutral", "sad", "angry", "tired"]
     action: Literal["feed", "sleep", "clean", "play", "none"]
     equip: ChatEquip | None = None
+    animation: str | None = None
 
 
 class ChatResponse(BaseModel):

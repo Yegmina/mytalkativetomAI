@@ -56,6 +56,7 @@ export interface ChatResult {
   mood: "happy" | "neutral" | "sad" | "angry" | "tired";
   action: "feed" | "sleep" | "clean" | "play" | "none";
   equip?: ChatEquip | null;
+  animation?: string | null;
 }
 
 export interface ChatResponse {

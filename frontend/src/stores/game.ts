@@ -16,6 +16,7 @@ import {
 type ChatHistoryItem = ChatMessage & { at: number };
 
 let moodTimer: number | undefined;
+let animationTimer: number | undefined;
 
 export const useGameStore = defineStore("game", {
   state: () => ({
@@ -28,6 +29,7 @@ export const useGameStore = defineStore("game", {
     chatError: null as string | null,
     chatResult: null as ChatResult | null,
     moodOverride: null as { mood: ChatResult["mood"]; until: number } | null,
+    animationOverride: null as { animation: string; until: number } | null,
   }),
   actions: {
     async loadProfile() {
@@ -113,6 +115,20 @@ export const useGameStore = defineStore("game", {
         moodTimer = window.setTimeout(() => {
           this.moodOverride = null;
         }, 6000);
+        if (response.response.animation) {
+          this.animationOverride = {
+            animation: response.response.animation,
+            until: Date.now() + 6000,
+          };
+          if (animationTimer) {
+            window.clearTimeout(animationTimer);
+          }
+          animationTimer = window.setTimeout(() => {
+            this.animationOverride = null;
+          }, 6000);
+        } else {
+          this.animationOverride = null;
+        }
         const assistantMessage: ChatHistoryItem = {
           role: "assistant",
           content: response.response.reply,
