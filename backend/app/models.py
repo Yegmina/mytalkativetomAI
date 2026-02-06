@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -56,3 +56,29 @@ class ActionResponse(BaseModel):
     profile: ProfileOut
     message: str | None = None
     extra: dict[str, Any] | None = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["system", "user", "assistant"]
+    content: str
+
+
+class ChatEquip(BaseModel):
+    hat_id: str | None = None
+    background_id: str | None = None
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+
+
+class ChatResult(BaseModel):
+    reply: str
+    mood: Literal["happy", "neutral", "sad", "angry", "tired"]
+    action: Literal["feed", "sleep", "clean", "play", "none"]
+    equip: ChatEquip | None = None
+
+
+class ChatResponse(BaseModel):
+    response: ChatResult
+    profile: ProfileOut

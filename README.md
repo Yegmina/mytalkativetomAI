@@ -12,6 +12,8 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+copy .env.example .env
+REM edit .env with your API keys
 uvicorn app.main:app --reload
 ```
 
