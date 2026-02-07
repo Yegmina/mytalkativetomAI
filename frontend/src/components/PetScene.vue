@@ -68,6 +68,15 @@ const bodyImage = computed(() => {
   return asset("kit_body_neutral.png");
 });
 
+const bodyImageFallback = asset("kit_cat1.jpg");
+const bodySrc = ref(asset("kit_body_neutral.png"));
+watch(bodyImage, (src) => {
+  bodySrc.value = src;
+}, { immediate: true });
+function onBodyImageError() {
+  bodySrc.value = bodyImageFallback;
+}
+
 const petImage = computed(() => {
   if (energyLevel.value < 25) {
     return asset("kit_face_phew.png");
@@ -84,11 +93,12 @@ const petImage = computed(() => {
   return asset("kit_face_neutral.png");
 });
 
-const animationSrc = computed(() =>
-  props.animationOverride
-    ? `${apiBase}/assets/animations_cat/${props.animationOverride}`
-    : null
-);
+const DEFAULT_IDLE_ANIMATION = "animation-Kit.webm";
+
+const animationSrc = computed(() => {
+  const filename = props.animationOverride ?? DEFAULT_IDLE_ANIMATION;
+  return `${apiBase}/assets/animations_cat/${filename}`;
+});
 
 const actionOverlay = ref<{ type: string; src?: string; kind: "image" | "video" | "text" } | null>(null);
 let actionTimer: number | undefined;
@@ -168,7 +178,7 @@ const alerts = computed(() => {
       <div class="pet-wrap" :class="{ 'is-animating': !!animationSrc }">
         <transition name="pet-animation-fade" mode="out-in">
           <video
-            v-if="animationSrc"
+            :key="animationSrc"
             :src="animationSrc"
             class="pet-animation"
             autoplay
@@ -178,7 +188,13 @@ const alerts = computed(() => {
           ></video>
         </transition>
         <transition name="pet-body-fade" mode="out-in">
-          <img :src="bodyImage" :key="bodyImage" alt="Kit body" class="pet-body" />
+          <img
+            :src="bodySrc"
+            :key="bodyImage"
+            alt="Kit body"
+            class="pet-body"
+            @error="onBodyImageError"
+          />
         </transition>
         <transition name="pet-face-pop" mode="out-in">
           <img :src="petImage" :key="petImage" alt="Kit face" class="pet-face" />
@@ -264,9 +280,7 @@ const alerts = computed(() => {
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.35));
 }
 
-.pet-wrap.is-animating .pet-body,
-.pet-wrap.is-animating .pet-face,
-.pet-wrap.is-animating .hat {
+.pet-wrap.is-animating .pet-body {
   opacity: 0;
 }
 

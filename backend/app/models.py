@@ -78,6 +78,23 @@ class ChatResult(BaseModel):
     action: Literal["feed", "sleep", "clean", "play", "none"]
     equip: ChatEquip | None = None
     animation: str | None = None
+    sfx_prompt: str | None = None
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+
+
+class SFXRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+
+
+class ActionFeedbackRequest(BaseModel):
+    action: Literal["feed", "sleep", "clean", "play"]
+
+
+class STTResponse(BaseModel):
+    text: str
 
 
 class ChatResponse(BaseModel):

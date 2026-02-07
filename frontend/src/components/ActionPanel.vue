@@ -1,9 +1,11 @@
 <script setup lang="ts">
+type ActionId = "feed" | "sleep" | "clean" | "play";
+
 const emit = defineEmits<{
-  (event: "action", action: string): void;
+  (event: "action", action: ActionId): void;
 }>();
 
-const actions = [
+const actions: { id: ActionId; label: string; icon: string }[] = [
   {
     id: "feed",
     label: "Feed",

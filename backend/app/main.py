@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -11,6 +13,7 @@ from dotenv import load_dotenv
 from app.db import get_conn, init_db
 from app.models import (
     ActionResponse,
+    ActionFeedbackRequest,
     BuyRequest,
     ChatRequest,
     ChatResponse,
@@ -18,10 +21,14 @@ from app.models import (
     MiniGameResult,
     ProfileOut,
     ShopResponse,
+    SFXRequest,
+    STTResponse,
+    TTSRequest,
 )
 from app.services import chat as chat_service
 from app.services.chat import ChatServiceError
 from app.services import game
+from app.services import voice as voice_service
 
 logger = logging.getLogger(__name__)
 app = FastAPI(title="Talking Tom Hackathon API")
@@ -101,6 +108,55 @@ def submit_minigame(payload: MiniGameResult) -> ActionResponse:
     return ActionResponse(profile=ProfileOut(**profile), message="Mini-game rewards applied.")
 
 
+@app.post("/api/tts")
+def text_to_speech(payload: TTSRequest) -> StreamingResponse:
+    try:
+        audio = voice_service.text_to_speech(payload.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Text-to-speech failed")
+        raise HTTPException(status_code=502, detail="Text-to-speech failed") from exc
+
+    return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg")
+
+
+@app.post("/api/sfx")
+def sound_effects(payload: SFXRequest) -> StreamingResponse:
+    try:
+        audio = voice_service.text_to_sound_effects(payload.prompt)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Sound-effects generation failed")
+        raise HTTPException(status_code=502, detail="Sound-effects failed") from exc
+
+    return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg")
+
+
+@app.post("/api/stt", response_model=STTResponse)
+async def speech_to_text(audio: UploadFile = File(...)) -> STTResponse:
+    if not audio:
+        raise HTTPException(status_code=400, detail="Audio file is required")
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Audio file is empty")
+    try:
+        text = voice_service.speech_to_text(audio_bytes, filename=audio.filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Speech-to-text failed")
+        raise HTTPException(status_code=502, detail="Speech-to-text failed") from exc
+    return STTResponse(text=text)
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest) -> ChatResponse:
     with get_conn() as conn:
@@ -146,5 +202,66 @@ def chat(payload: ChatRequest) -> ChatResponse:
                         continue
                 if item_id in profile["owned_items"]:
                     profile = game.update_equip(conn, item_id)
+
+    return ChatResponse(response=result, profile=ProfileOut(**profile))
+
+
+@app.post("/api/action-feedback", response_model=ChatResponse)
+def action_feedback(payload: ActionFeedbackRequest) -> ChatResponse:
+    with get_conn() as conn:
+        profile = game.fetch_profile(conn)
+        shop_items = game.get_shop_items()
+        hat_ids = [item["id"] for item in shop_items if item["type"] == "hat"]
+        background_ids = [
+            item["id"] for item in shop_items if item["type"] == "background"
+        ]
+        try:
+            result = chat_service.action_feedback(
+                action=payload.action,
+                profile=profile,
+                hat_ids=hat_ids,
+                background_ids=background_ids,
+            )
+        except ChatServiceError as exc:
+            logger.info("Chat service error: %s", exc)
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("Action feedback failed")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Action feedback failed: {str(exc)}",
+            ) from exc
+
+    return ChatResponse(response=result, profile=ProfileOut(**profile))
+
+
+@app.post("/api/reminder", response_model=ChatResponse)
+def reminder() -> ChatResponse:
+    with get_conn() as conn:
+        profile = game.fetch_profile(conn)
+        shop_items = game.get_shop_items()
+        hat_ids = [item["id"] for item in shop_items if item["type"] == "hat"]
+        background_ids = [
+            item["id"] for item in shop_items if item["type"] == "background"
+        ]
+        try:
+            result = chat_service.reminder_with_cat(
+                profile=profile,
+                hat_ids=hat_ids,
+                background_ids=background_ids,
+            )
+        except ChatServiceError as exc:
+            logger.info("Chat service error: %s", exc)
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("Reminder failed")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Reminder failed: {str(exc)}",
+            ) from exc
 
     return ChatResponse(response=result, profile=ProfileOut(**profile))

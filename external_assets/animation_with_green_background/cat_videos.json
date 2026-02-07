@@ -1,0 +1,65 @@
+{
+  "description": "This JSON file organizes cat reaction videos for use in Cursor. Each entry represents a specific cat emotion or action, mapped to a video file and a short description to help Cursor understand when to use each video.",
+  "cats": [
+    {
+      "video": "talking_actively.mp4",
+      "description": "Cat appears to be actively talking or vocalizing with energy"
+    },
+    {
+      "video": "chilling_cat.mp4",
+      "description": "Cat is relaxed, calm, and doing nothing in particular"
+    },
+    {
+      "video": "talking.mp4",
+      "description": "Cat is casually talking or meowing"
+    },
+    {
+      "video": "happy.mp4",
+      "description": "Cat looks happy, content, or excited"
+    },
+    {
+      "video": "crying.mp4",
+      "description": "Cat appears sad or distressed, as if crying"
+    },
+    {
+      "video": "screaming.mp4",
+      "description": "Cat is loudly screaming or yelling"
+    },
+    {
+      "video": "angry.mp4",
+      "description": "Cat looks angry, aggressive, or annoyed"
+    },
+    {
+      "video": "dancing.mp4",
+      "description": "Cat is dancing or moving rhythmically in a playful way"
+    },
+    {
+      "video": "walk.mp4",
+      "description": "Cat walks with energy from side to side"
+    },
+    {
+      "video": "motorcycle.mp4",
+      "description": "Cat starts a motorcycle with energy"
+    },
+    {
+      "video": "guitar.mp4",
+      "description": "Cat plays guitar passinately"
+    },
+    {
+      "video": "sing.mp4",
+      "description": "Cat`s singing opera in sunglasses"
+    },
+    {
+      "video": "motorcycle.mp4",
+      "description": "Cat starts a motorcycle with energy"
+    },
+    {
+      "video": "eat.mp4",
+      "description": "Cat eats food happily chewing"
+    },
+    {
+      "video": "clean.mp4",
+      "description": "Cat`s cleaning its purr and paws"
+    }
+  ]
+}

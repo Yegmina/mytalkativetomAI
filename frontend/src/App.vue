@@ -19,6 +19,7 @@ let refreshTimer: number | undefined;
 onMounted(async () => {
   await store.loadProfile();
   await store.loadShop();
+  store.startReminderLoop();
   refreshTimer = window.setInterval(() => {
     store.loadProfile();
   }, 15000);
@@ -28,9 +29,10 @@ onUnmounted(() => {
   if (refreshTimer) {
     window.clearInterval(refreshTimer);
   }
+  store.stopReminderLoop();
 });
 
-async function handleAction(action: string) {
+async function handleAction(action: "feed" | "sleep" | "clean" | "play") {
   lastAction.value = { type: action, at: Date.now() };
   await store.action(action);
 }
