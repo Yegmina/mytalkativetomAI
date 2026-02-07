@@ -13,6 +13,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function requestBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Request failed");
+  }
+  return await response.blob();
+}
+
 export interface Profile {
   id: number;
   name: string;
@@ -57,6 +69,7 @@ export interface ChatResult {
   action: "feed" | "sleep" | "clean" | "play" | "none";
   equip?: ChatEquip | null;
   animation?: string | null;
+  sfx_prompt?: string | null;
 }
 
 export interface ChatResponse {
@@ -105,4 +118,51 @@ export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
     method: "POST",
     body: JSON.stringify({ messages }),
   });
+}
+
+export async function requestActionFeedback(
+  action: "feed" | "sleep" | "clean" | "play"
+): Promise<ChatResponse> {
+  return request("/api/action-feedback", {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+}
+
+export async function requestReminder(): Promise<ChatResponse> {
+  return request("/api/reminder", {
+    method: "POST",
+  });
+}
+
+export async function synthesizeSpeech(text: string): Promise<Blob> {
+  return requestBlob("/api/tts", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export async function synthesizeSoundEffect(prompt: string): Promise<Blob> {
+  return requestBlob("/api/sfx", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function transcribeSpeech(audio: Blob): Promise<{ text: string }> {
+  const formData = new FormData();
+  const file = audio instanceof File ? audio : new File([audio], "speech.webm", {
+    type: audio.type || "audio/webm",
+  });
+  formData.append("audio", file);
+
+  const response = await fetch(`${API_BASE}/api/stt`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Request failed");
+  }
+  return (await response.json()) as { text: string };
 }

@@ -40,6 +40,22 @@
     {
       "video": "motorcycle.webm",
       "description": "Cat starts a motorcycle with energy"
+    },
+    {
+      "video": "guitar.webm",
+      "description": "Cat plays guitar passionately"
+    },
+    {
+      "video": "sing.webm",
+      "description": "Cat is singing opera in sunglasses"
+    },
+    {
+      "video": "eat.webm",
+      "description": "Cat eats food happily, chewing"
+    },
+    {
+      "video": "clean.webm",
+      "description": "Cat cleans its fur and paws"
     }
   ]
 }

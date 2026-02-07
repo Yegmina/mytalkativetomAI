@@ -1,6 +1,9 @@
 fastapi==0.115.0
 httpx==0.28.1
 google-genai
+elevenlabs
+python-multipart
 openai==1.96.1
 python-dotenv==1.0.1
 uvicorn[standard]==0.30.6
+Pillow>=10.0.0

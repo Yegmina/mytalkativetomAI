@@ -10,7 +10,7 @@ def near_white(r: int, g: int, b: int, threshold: int) -> bool:
     return math.sqrt((255 - r) ** 2 + (255 - g) ** 2 + (255 - b) ** 2) <= threshold
 
 
-def remove_background(src: Path, dest: Path, threshold: int = 18) -> None:
+def remove_background(src: Path, dest: Path, threshold: int = 5) -> None:
     img = Image.open(src).convert("RGBA")
     w, h = img.size
     pixels = img.load()

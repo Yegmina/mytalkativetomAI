@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import type { ChatResult, ChatMessage } from "../api/client";
+import { onUnmounted, ref } from "vue";
+import { transcribeSpeech, type ChatResult, type ChatMessage } from "../api/client";
 
 const props = defineProps<{
   messages: (ChatMessage & { at: number })[];
@@ -15,11 +15,88 @@ const emit = defineEmits<{
 }>();
 
 const input = ref("");
+const micEnabled = ref(false);
+const micTranscribing = ref(false);
+const micError = ref<string | null>(null);
+let mediaRecorder: MediaRecorder | null = null;
+let mediaStream: MediaStream | null = null;
+let chunks: Blob[] = [];
 
 function submit() {
   emit("send", input.value);
   input.value = "";
 }
+
+async function startRecording() {
+  micError.value = null;
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    micError.value = "Microphone is not supported in this browser.";
+    return;
+  }
+  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(mediaStream);
+  chunks = [];
+  mediaRecorder.ondataavailable = (event) => {
+    if (event.data.size > 0) {
+      chunks.push(event.data);
+    }
+  };
+  mediaRecorder.onstop = async () => {
+    micEnabled.value = false;
+    const blob = new Blob(chunks, {
+      type: mediaRecorder?.mimeType || "audio/webm",
+    });
+    chunks = [];
+    micTranscribing.value = true;
+    try {
+      const result = await transcribeSpeech(blob);
+      if (result.text?.trim()) {
+        emit("send", result.text);
+      }
+    } catch (error) {
+      micError.value =
+        error instanceof Error ? error.message : "Speech-to-text failed";
+    } finally {
+      micTranscribing.value = false;
+      mediaStream?.getTracks().forEach((track) => track.stop());
+      mediaStream = null;
+      mediaRecorder = null;
+    }
+  };
+  mediaRecorder.start();
+  micEnabled.value = true;
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  micEnabled.value = false;
+}
+
+async function toggleMic() {
+  if (micEnabled.value) {
+    stopRecording();
+    return;
+  }
+  try {
+    await startRecording();
+  } catch (error) {
+    micError.value =
+      error instanceof Error ? error.message : "Microphone access failed";
+    micEnabled.value = false;
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+    mediaRecorder = null;
+  }
+}
+
+onUnmounted(() => {
+  stopRecording();
+  mediaStream?.getTracks().forEach((track) => track.stop());
+  mediaStream = null;
+  mediaRecorder = null;
+});
 </script>
 
 <template>
@@ -45,7 +122,19 @@ function submit() {
       </div>
     </div>
     <div class="chat-error" v-if="error">{{ error }}</div>
+    <div class="chat-mic-status" v-if="micEnabled || micTranscribing">
+      {{ micTranscribing ? "Transcribing…" : "Listening…" }}
+    </div>
+    <div class="chat-error" v-if="micError">{{ micError }}</div>
     <div class="chat-input">
+      <button
+        class="mic-btn"
+        :class="{ active: micEnabled }"
+        :disabled="pending || micTranscribing"
+        @click="toggleMic"
+      >
+        {{ micEnabled ? "Stop" : "Mic" }}
+      </button>
       <input
         v-model="input"
         type="text"
@@ -123,9 +212,28 @@ function submit() {
   font-size: 12px;
 }
 
+.chat-mic-status {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .chat-input {
   display: flex;
   gap: 8px;
+}
+
+.mic-btn {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 12px;
+}
+
+.mic-btn.active {
+  background: rgba(255, 112, 112, 0.35);
+  border-color: rgba(255, 112, 112, 0.5);
 }
 
 .chat-input input {

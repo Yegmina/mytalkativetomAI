@@ -16,7 +16,9 @@ from app.models import ChatMessage, ChatResult
 
 DEFAULT_OPENAI_MODEL = "gpt-5"
 DEFAULT_REASONING_EFFORT = "medium"
+DEFAULT_OPENAI_TEMPERATURE = 0.9
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_TEMPERATURE = 1.0
 
 
 class ChatServiceError(RuntimeError):
@@ -26,6 +28,17 @@ class ChatServiceError(RuntimeError):
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        logger.warning("Invalid %s=%r, using default %s", name, value, default)
+        return default
 
 
 def _animation_options() -> list[dict[str, str]]:
@@ -75,7 +88,10 @@ def _system_prompt(
         animation_list = "none"
     return (
         "You are Kit the cat in a virtual pet game. Keep replies short, playful, and kind. "
+        "Occasionally include a brief 'meow' or 'purr' in the reply text. "
         "You MUST respond in JSON that matches the provided schema. "
+        "Include sfx_prompt as a short sound effect description (no speech, no music) "
+        "when a cute sound effect would fit; otherwise set sfx_prompt to null. "
         "Pick a mood, an action, and optional equip item based on the user's message. "
         "Choose an animation video that fits the mood/action; if unsure use chilling_cat.mp4. "
         "If the user asks to change a hat/background, select from the allowed ids. "
@@ -89,6 +105,29 @@ def _system_prompt(
     )
 
 
+def _action_feedback_prompt(action: str) -> str:
+    return (
+        f"The user just pressed the '{action}' button in the game. "
+        "Reply with a very short reaction (max 1 sentence), playful and cute. "
+        "Do not change hats or backgrounds (equip should be null). "
+        f"Set action to '{action}'. "
+        "If a cute sound effect fits, set sfx_prompt to a short sound effect description "
+        "(no speech, no music); otherwise set sfx_prompt to null."
+    )
+
+
+def _reminder_prompt() -> str:
+    return (
+        "Check in on the user based on the current stats. "
+        "If any stat looks concerning (hunger high, energy/hygiene/fun/mood low), "
+        "give a short reminder to the user and suggest the most relevant action in the reply text. "
+        "Set action to 'none'. Otherwise, give a playful check-in and set action to 'none'. "
+        "Do not change hats or backgrounds (equip should be null). "
+        "If a cute sound effect fits, set sfx_prompt to a short sound effect description "
+        "(no speech, no music); otherwise set sfx_prompt to null."
+    )
+
+
 def _chat_openai(
     messages: list[ChatMessage],
     profile: dict,
@@ -97,6 +136,7 @@ def _chat_openai(
 ) -> ChatResult:
     model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
     reasoning_effort = os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
+    temperature = _get_float("OPENAI_TEMPERATURE", DEFAULT_OPENAI_TEMPERATURE)
     allowed_animations = [item["video"] for item in _animation_options()]
     animation_enum = allowed_animations + [None]
     system_message = {
@@ -110,6 +150,7 @@ def _chat_openai(
     response = _client().responses.create(
         model=model,
         reasoning={"effort": reasoning_effort},
+        temperature=temperature,
         response_format={
             "type": "json_schema",
             "json_schema": {
@@ -139,6 +180,7 @@ def _chat_openai(
                             "type": ["string", "null"],
                             "enum": animation_enum,
                         },
+                        "sfx_prompt": {"type": ["string", "null"]},
                     },
                     "required": ["reply", "mood", "action"],
                     "additionalProperties": False,
@@ -171,6 +213,7 @@ def _chat_gemini(
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not set")
     model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    temperature = _get_float("GEMINI_TEMPERATURE", DEFAULT_GEMINI_TEMPERATURE)
     contents: list[types.Content] = []
     for msg in messages:
         role = "user" if msg.role == "user" else "model"
@@ -186,6 +229,7 @@ def _chat_gemini(
         system_instruction=system_prompt_text,
         response_mime_type="application/json",
         response_schema=ChatResult,
+        temperature=temperature,
     )
 
     response = None
@@ -300,4 +344,28 @@ def chat_with_cat(
         result = _chat_openai(messages, profile, hat_ids, background_ids)
 
     result.animation = _normalize_animation(result.animation)
+    return result
+
+
+def action_feedback(
+    action: str,
+    profile: dict,
+    hat_ids: Iterable[str],
+    background_ids: Iterable[str],
+) -> ChatResult:
+    message = ChatMessage(role="user", content=_action_feedback_prompt(action))
+    result = chat_with_cat([message], profile, hat_ids, background_ids)
+    result.equip = None
+    return result
+
+
+def reminder_with_cat(
+    profile: dict,
+    hat_ids: Iterable[str],
+    background_ids: Iterable[str],
+) -> ChatResult:
+    message = ChatMessage(role="user", content=_reminder_prompt())
+    result = chat_with_cat([message], profile, hat_ids, background_ids)
+    result.equip = None
+    result.action = "none"
     return result
