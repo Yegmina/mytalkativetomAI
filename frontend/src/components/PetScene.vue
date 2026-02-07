@@ -280,9 +280,7 @@ const alerts = computed(() => {
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.35));
 }
 
-.pet-wrap.is-animating .pet-body,
-.pet-wrap.is-animating .pet-face,
-.pet-wrap.is-animating .hat {
+.pet-wrap.is-animating .pet-body {
   opacity: 0;
 }
 
