@@ -32,7 +32,7 @@ let lastReminderAt = 0;
 
 const REMINDER_MIN_MS = 20000;
 const REMINDER_MAX_MS = 50000;
-const HUNGER_HIGH = 70;
+const HUNGER_LOW = 30;
 const LOW_STAT = 30;
 const ANIMATION_DURATION_MS = 6000;
 
@@ -53,7 +53,7 @@ function randomBetween(min: number, max: number) {
 function needsAttention(profile: Profile | null) {
   if (!profile) return false;
   return (
-    profile.hunger >= HUNGER_HIGH ||
+    profile.hunger <= HUNGER_LOW ||
     profile.energy <= LOW_STAT ||
     profile.hygiene <= LOW_STAT ||
     profile.fun <= LOW_STAT ||
