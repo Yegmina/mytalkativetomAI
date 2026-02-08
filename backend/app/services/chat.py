@@ -96,7 +96,7 @@ def _system_prompt(
         "Choose an animation video that fits the mood/action; if unsure use chilling_cat.mp4. "
         "If the user asks to change a hat/background, select from the allowed ids. "
         "If unsure, use action 'none' and mood 'neutral'. "
-        "All stats are on a 0-100 scale. Lower hunger means more full; higher hunger means more hungry. "
+        "All stats are on a 0-100 scale. Hunger is fullness: lower hunger means more hungry, higher hunger means more full. "
         "Higher energy, hygiene, and fun are better. Mood is 0-100 where higher is happier. "
         f"Current stats: hunger={profile['hunger']:.0f}, energy={profile['energy']:.0f}, "
         f"hygiene={profile['hygiene']:.0f}, fun={profile['fun']:.0f}, mood={profile['mood']:.0f}. "
@@ -119,7 +119,7 @@ def _action_feedback_prompt(action: str) -> str:
 def _reminder_prompt() -> str:
     return (
         "Check in on the user based on the current stats. "
-        "If any stat looks concerning (hunger high, energy/hygiene/fun/mood low), "
+        "If any stat looks concerning (hunger low, energy/hygiene/fun/mood low), "
         "give a short reminder to the user and suggest the most relevant action in the reply text. "
         "Set action to 'none'. Otherwise, give a playful check-in and set action to 'none'. "
         "Do not change hats or backgrounds (equip should be null). "
